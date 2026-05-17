@@ -1,0 +1,94 @@
+@import "tailwindcss";
+
+@import "@fontsource/space-grotesk/400.css";
+@import "@fontsource/space-grotesk/500.css";
+@import "@fontsource/space-grotesk/700.css";
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/500.css";
+
+@theme {
+  --color-cream: #f5f4f1;
+  --color-bronze: #e8a87c;
+  --color-ink: #0a0a0a;
+  --color-ink-2: #141414;
+  --color-ink-3: #262626;
+  --color-muted: #737373;
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+:root {
+  color-scheme: dark;
+  --cream: #f5f4f1;
+  --bronze: #e8a87c;
+  --ink: #0a0a0a;
+  --ink-2: #141414;
+  --ink-3: #262626;
+  --muted: #737373;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  background: var(--ink);
+  color: var(--cream);
+  font-family: var(--font-display);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body { margin: 0; overflow-x: hidden; }
+
+/* Hide scrollbars globally — virtual scroll system handles wheel events on home. */
+::-webkit-scrollbar { width: 0; height: 0; background: transparent; }
+* { scrollbar-width: none; -ms-overflow-style: none; }
+
+button, a { font-family: inherit; color: inherit; }
+a { text-decoration: none; }
+
+::selection { background: var(--bronze); color: var(--ink); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.font-mono { font-family: var(--font-mono); }
+.font-display { font-family: var(--font-display); }
+
+.wordmark {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.125rem;
+  border: 1px solid var(--ink-3);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--cream);
+  background: rgba(245, 244, 241, 0.02);
+  transition: border-color 200ms ease, background 200ms ease, transform 200ms ease;
+}
+.btn-ghost:hover {
+  border-color: var(--bronze);
+  background: rgba(232, 168, 124, 0.08);
+}
+.btn-ghost:focus-visible {
+  outline: 2px solid var(--bronze);
+  outline-offset: 2px;
+}
+
+.hairline { background: linear-gradient(to right, transparent, var(--ink-3), transparent); height: 1px; }
