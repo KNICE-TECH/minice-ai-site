@@ -7,10 +7,10 @@ export function PostFX() {
   return (
     <EffectComposer multisampling={0}>
       <Bloom
-        intensity={1.1}
-        luminanceThreshold={1.0}
-        luminanceSmoothing={0.4}
-        kernelSize={KernelSize.LARGE}
+        intensity={0.55}
+        luminanceThreshold={1.2}
+        luminanceSmoothing={0.5}
+        kernelSize={KernelSize.MEDIUM}
         mipmapBlur
       />
       <Vignette eskil={false} offset={0.32} darkness={0.5} />
