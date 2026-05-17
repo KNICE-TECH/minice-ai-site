@@ -7,13 +7,14 @@ import { CameraRig } from "./cameraRig";
 import { PostFX } from "./PostFX";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { useGPUTier } from "@/hooks/useGPUTier";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { useProgressStore } from "@/scroll/progressStore";
-import { smoothstep, lerp } from "@/lib/math";
 
 export function SceneRoot() {
   const reduced = useReducedMotion();
   const tier = useGPUTier();
   const lowEnd = tier <= 1;
+  const mobile = useIsMobile();
   const isHome = useLocation().pathname === "/";
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -22,23 +23,35 @@ export function SceneRoot() {
     useProgressStore.getState().set(0);
   }, [reduced]);
 
-  // Blur the whole 3D canvas while project cards are visible so they pop above
-  // the busy mark. Subscribed via DOM ref to avoid re-renders.
+  // Mobile home: Hero shows the crisp 3D mark (boom + split intro); once the
+  // user scrolls past ~40% of the viewport, the mark fades into a soft
+  // blurred backdrop so the page content stays primary.
   useEffect(() => {
-    if (!isHome) return;
-    const apply = (p: number) => {
+    if (!isHome || !mobile) {
+      const el = wrapRef.current;
+      if (el && isHome) {
+        el.style.filter = "";
+        el.style.opacity = "";
+      }
+      return;
+    }
+    const apply = () => {
       const el = wrapRef.current;
       if (!el) return;
-      // Blur during the Projects pin window (~0.20–0.60 in new layout).
-      const projectsActive = smoothstep(0.20, 0.30, p) * (1 - smoothstep(0.55, 0.65, p));
-      const blurAmt = projectsActive * 14;
-      const dim = lerp(1, 0.55, projectsActive);
-      el.style.filter = blurAmt > 0.1 ? `blur(${blurAmt.toFixed(2)}px)` : "none";
-      el.style.opacity = String(dim);
+      const t = Math.min(1, Math.max(0, window.scrollY / (window.innerHeight * 0.5)));
+      const blur = t * 3.5;       // subtle softening, not heavy frost
+      const op = 1 - t * 0.25;
+      el.style.filter = blur > 0.1 ? `blur(${blur.toFixed(1)}px)` : "none";
+      el.style.opacity = String(op);
     };
-    apply(useProgressStore.getState().progress);
-    return useProgressStore.subscribe((s) => apply(s.progress));
-  }, [isHome]);
+    apply();
+    window.addEventListener("scroll", apply, { passive: true });
+    window.addEventListener("resize", apply);
+    return () => {
+      window.removeEventListener("scroll", apply);
+      window.removeEventListener("resize", apply);
+    };
+  }, [isHome, mobile]);
 
   return (
     <div

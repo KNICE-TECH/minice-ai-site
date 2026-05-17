@@ -77,9 +77,10 @@ const FLASH_FRAG = `
   varying vec2 vUv;
   void main() {
     float d = distance(vUv, vec2(0.5));
-    float core = smoothstep(0.16, 0.0, d);
-    float halo = smoothstep(0.5, 0.05, d);
-    float v = (core * 1.6 + halo * 0.55) * uIntensity;
+    // GLSL smoothstep requires edge0 < edge1, so we invert.
+    float core = 1.0 - smoothstep(0.0, 0.12, d);   // tight punchy center
+    float halo = 1.0 - smoothstep(0.05, 0.45, d);  // soft surrounding glow
+    float v = (core * 2.4 + halo * 0.7) * uIntensity;
     gl_FragColor = vec4(uColor * v, v);
   }
 `;
@@ -94,7 +95,7 @@ export function LightBeams() {
 
   const shardGeo = useMemo(() => buildShardGeometry(), []);
   const seeds = useMemo(() => makeSeeds(), []);
-  const flashGeo = useMemo(() => new THREE.PlaneGeometry(1.8, 1.8), []);
+  const flashGeo = useMemo(() => new THREE.PlaneGeometry(0.95, 0.95), []);
   const ringGeo1 = useMemo(() => buildRingGeometry(0.95, 1.0, 96), []);
   const ringGeo2 = useMemo(() => buildRingGeometry(0.97, 1.0, 96), []);
   const flashUniforms = useMemo(
@@ -116,26 +117,31 @@ export function LightBeams() {
     elapsed.current += delta;
     const p = useProgressStore.getState().progress;
 
-    // Sharp burst centered around p≈0.22
-    const burst = smoothstep(0.13, 0.22, p) * (1 - smoothstep(0.22, 0.4, p));
-    const flash = smoothstep(0.16, 0.22, p) * (1 - smoothstep(0.22, 0.3, p));
+    // Boom lifecycle — lingers deep into the Projects pin:
+    //   p=0.06 — blades start flying, boom ignites
+    //   p=0.13 — boom peak (mid-flight)
+    //   p=0.22 — blades fully open (Projects pin begins ~p=0.23)
+    //   p=0.45 — boom starts fading (mid Projects pin)
+    //   p=0.62 — boom fully gone (end of Projects pin window)
+    const burst = smoothstep(0.06, 0.13, p) * (1 - smoothstep(0.45, 0.62, p));
+    const flash = smoothstep(0.06, 0.12, p) * (1 - smoothstep(0.40, 0.58, p));
 
     if (flashRef.current) {
       const u = flashRef.current.uniforms;
-      const target = flash * 1.8;
-      u.uIntensity.value += (target - u.uIntensity.value) * Math.min(1, delta * 12);
+      const target = flash * 2.6;                        // boost so the bloom core punches through
+      u.uIntensity.value += (target - u.uIntensity.value) * Math.min(1, delta * 14);
     }
 
-    // Rings: expand outward from center as burst fires
+    // Rings: expand outward from center as boom fires
     if (ring1Ref.current) {
       const s = burst * 3.5;
-      const op = burst * (1 - smoothstep(0.22, 0.4, p)) * 0.8;
+      const op = burst * 0.8;
       ring1Ref.current.scale.setScalar(s + 0.001);
       (ring1Ref.current.material as THREE.MeshBasicMaterial).opacity = op;
     }
     if (ring2Ref.current) {
       const s = burst * 2.4;
-      const op = burst * (1 - smoothstep(0.22, 0.4, p)) * 0.55;
+      const op = burst * 0.55;
       ring2Ref.current.scale.setScalar(s + 0.001);
       (ring2Ref.current.material as THREE.MeshBasicMaterial).opacity = op;
     }
@@ -207,8 +213,9 @@ export function LightBeams() {
         />
       </mesh>
 
-      {/* Central flash disc */}
-      <mesh geometry={flashGeo} position={[0, 0, -0.1]}>
+      {/* Small bloom core — placed slightly BEHIND the blades (z=-0.15) so it
+          peeks through the seams as a tight glowing dot. */}
+      <mesh geometry={flashGeo} position={[0, 0, -0.15]}>
         <shaderMaterial
           ref={flashRef}
           uniforms={flashUniforms}

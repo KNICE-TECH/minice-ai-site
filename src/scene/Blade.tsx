@@ -168,11 +168,11 @@ export function Blade({ index, color, opacity = 1 }: Props) {
       matRef.current.opacity += (targetOpacity - matRef.current.opacity) * damp;
     }
 
-    // Edge glow: cracks of light through the seams during the opening.
-    // Bright burst at p≈0.13-0.28, lingers softer through projects, dims out.
+    // Edge glow: cracks of light through the seams just before/during the split.
+    // Lights up right after the boom ignites (~0.02) and fades as blades fan out.
     if (edgeMatRef.current) {
-      const opening = smoothstep(0.1, 0.2, progress) * (1 - smoothstep(0.35, 0.55, progress));
-      const sealing = smoothstep(0.75, 0.85, progress) * (1 - smoothstep(0.88, 0.95, progress));
+      const opening = smoothstep(0.06, 0.12, progress) * (1 - smoothstep(0.45, 0.60, progress));
+      const sealing = smoothstep(0.85, 0.90, progress) * (1 - smoothstep(0.92, 0.96, progress));
       const baseShimmer = 0.08; // always-on faint outline
       const targetIntensity = baseShimmer + opening * 4.5 + sealing * 1.5;
       const cur = edgeMatRef.current.opacity;

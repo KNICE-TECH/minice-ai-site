@@ -3,11 +3,13 @@ import { motion } from "framer-motion";
 import { useI18n } from "@/hooks/useI18n";
 import { useAudioCue } from "@/hooks/useAudioCue";
 import { useScrollProgress } from "@/hooks/useScrollProgress";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 export function Hero() {
   const { t } = useI18n();
   const audio = useAudioCue();
   const p = useScrollProgress();
+  const mobile = useIsMobile();
   const fired = useRef(false);
 
   useEffect(() => {
@@ -17,6 +19,44 @@ export function Hero() {
     }
     if (p < 0.1) fired.current = false;
   }, [p, audio]);
+
+  if (mobile) {
+    return (
+      <section id="hero" className="relative w-full" style={{ minHeight: "100dvh" }}>
+        <div className="flex flex-col items-center px-4 pt-16 pb-10">
+          <motion.p
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.2 }}
+            className="font-mono uppercase tracking-[0.32em] text-[color:var(--bronze)] text-center mb-[55dvh]"
+            style={{ fontSize: "0.62rem" }}
+          >
+            {t.hero.eyebrow}
+          </motion.p>
+          <div className="w-full max-w-md mx-auto text-center">
+            <motion.h1
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.9, delay: 0.35, ease: [0.2, 0.8, 0.2, 1] }}
+              className="font-display font-bold leading-[1.1] whitespace-pre-line tracking-tight"
+              style={{ fontSize: "1.75rem" }}
+            >
+              {t.hero.headline}
+            </motion.h1>
+            <motion.p
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.9, delay: 0.55 }}
+              className="mt-3 mx-auto text-[color:var(--cream)]/65 leading-relaxed"
+              style={{ fontSize: "0.85rem" }}
+            >
+              {t.hero.sub}
+            </motion.p>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section

@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { Blade } from "./Blade";
@@ -6,6 +6,7 @@ import { Backdrop } from "./Backdrop";
 import { LightBeams } from "./LightBeams";
 import { useProgressStore } from "@/scroll/progressStore";
 import { useMousePosition } from "@/hooks/useMousePosition";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { smoothstep, lerp, clamp } from "@/lib/math";
 
 // Max rotation cap everywhere — 30° in radians.
@@ -21,8 +22,21 @@ const MOUSE_TILT_X = 0.18; // vertical mouse   → X rotation (~10°)
 export function ApertureRig() {
   const ref = useRef<THREE.Group>(null);
   const elapsed = useRef(0);
+  const scrollY = useRef(0);
   const mouse = useMousePosition();
   const { viewport } = useThree();
+  const mobile = useIsMobile();
+
+  // Track raw scroll on mobile for side-to-side mark rotation.
+  useEffect(() => {
+    if (!mobile) return;
+    const update = () => {
+      scrollY.current = window.scrollY;
+    };
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    return () => window.removeEventListener("scroll", update);
+  }, [mobile]);
 
   useFrame((_, delta) => {
     const p = useProgressStore.getState().progress;
@@ -69,9 +83,16 @@ export function ApertureRig() {
     const mouseYaw = mouse.current.x * MOUSE_TILT_Y * mouseStrength;
     const mousePitch = -mouse.current.y * MOUSE_TILT_X * mouseStrength;
 
-    const baseY =
-      sway * heroWeight +
-      scrollRot * (1 - heroWeight) * (1 - contactWeight);
+    // On mobile, scroll drives a gentle side-to-side oscillation across the
+    // page (sin wave: ~one full back-and-forth per viewport of scroll).
+    const mobileScrollRot = mobile
+      ? Math.sin(scrollY.current / 260) * MAX_ROT * 0.7
+      : 0;
+
+    const baseY = mobile
+      ? mobileScrollRot
+      : sway * heroWeight +
+        scrollRot * (1 - heroWeight) * (1 - contactWeight);
     const targetY = baseY + mouseYaw;
     const targetX_rot = mousePitch;
 

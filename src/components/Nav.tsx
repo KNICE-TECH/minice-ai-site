@@ -14,7 +14,16 @@ export function Nav() {
   };
 
   return (
-    <nav className="fixed top-0 inset-x-0 z-40 pointer-events-none">
+    <nav
+      className="fixed top-0 inset-x-0 z-40 pointer-events-none"
+      style={{
+        backdropFilter: "blur(10px) saturate(120%)",
+        WebkitBackdropFilter: "blur(10px) saturate(120%)",
+        background: "linear-gradient(to bottom, rgba(10,10,10,0.55), rgba(10,10,10,0))",
+        maskImage: "linear-gradient(to bottom, #000 55%, transparent 100%)",
+        WebkitMaskImage: "linear-gradient(to bottom, #000 55%, transparent 100%)",
+      }}
+    >
       <div className="max-w-6xl mx-auto px-6 sm:px-10 py-5 flex items-center justify-between">
         <Link
           to="/"
