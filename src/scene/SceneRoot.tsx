@@ -23,9 +23,9 @@ export function SceneRoot() {
     useProgressStore.getState().set(0);
   }, [reduced]);
 
-  // Mobile home: Hero shows the crisp 3D mark (boom + split intro); once the
-  // user scrolls past ~40% of the viewport, the mark fades into a soft
-  // blurred backdrop so the page content stays primary.
+  // Mobile home: the 3D mark stays crisp through Hero and Projects (Project
+  // cards already provide their own backdrop-blur for separation). Once the
+  // user scrolls past Projects, the mark softly fades to a blurred backdrop.
   useEffect(() => {
     if (!isHome || !mobile) {
       const el = wrapRef.current;
@@ -38,9 +38,20 @@ export function SceneRoot() {
     const apply = () => {
       const el = wrapRef.current;
       if (!el) return;
-      const t = Math.min(1, Math.max(0, window.scrollY / (window.innerHeight * 0.5)));
-      const blur = t * 3.5;       // subtle softening, not heavy frost
-      const op = 1 - t * 0.25;
+      const projects = document.getElementById("projects");
+      if (!projects) {
+        el.style.filter = "none";
+        el.style.opacity = "1";
+        return;
+      }
+      const projEnd = projects.offsetTop + projects.offsetHeight;
+      const vh = window.innerHeight;
+      const y = window.scrollY;
+      // Start blur the moment About begins entering the viewport (y = projEnd − vh)
+      // and reach full strength by the time Projects has fully scrolled away (y = projEnd).
+      const t = Math.min(1, Math.max(0, (y - (projEnd - vh)) / vh));
+      const blur = t * 6;           // gentle soft-focus, mark still legible
+      const op = 1 - t * 0.35;      // dim to 0.65 opacity at peak
       el.style.filter = blur > 0.1 ? `blur(${blur.toFixed(1)}px)` : "none";
       el.style.opacity = String(op);
     };

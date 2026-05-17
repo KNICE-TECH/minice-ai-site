@@ -117,14 +117,13 @@ export function LightBeams() {
     elapsed.current += delta;
     const p = useProgressStore.getState().progress;
 
-    // Boom lifecycle — lingers deep into the Projects pin:
+    // Boom lifecycle — holds at full peak through the entire Projects window:
     //   p=0.06 — blades start flying, boom ignites
-    //   p=0.13 — boom peak (mid-flight)
-    //   p=0.22 — blades fully open (Projects pin begins ~p=0.23)
-    //   p=0.45 — boom starts fading (mid Projects pin)
-    //   p=0.62 — boom fully gone (end of Projects pin window)
-    const burst = smoothstep(0.06, 0.13, p) * (1 - smoothstep(0.45, 0.62, p));
-    const flash = smoothstep(0.06, 0.12, p) * (1 - smoothstep(0.40, 0.58, p));
+    //   p=0.13 — boom hits peak
+    //   p=0.13 → 0.55 — peak held (covers desktop Projects pin AND mobile p=0.5 hold)
+    //   p=0.55 → 0.70 — boom fades out (end of Projects on desktop)
+    const burst = smoothstep(0.06, 0.13, p) * (1 - smoothstep(0.55, 0.70, p));
+    const flash = smoothstep(0.06, 0.12, p) * (1 - smoothstep(0.50, 0.66, p));
 
     if (flashRef.current) {
       const u = flashRef.current.uniforms;

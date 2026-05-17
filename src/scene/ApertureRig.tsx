@@ -7,6 +7,7 @@ import { LightBeams } from "./LightBeams";
 import { useProgressStore } from "@/scroll/progressStore";
 import { useMousePosition } from "@/hooks/useMousePosition";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useDeviceOrientation } from "@/hooks/useDeviceOrientation";
 import { smoothstep, lerp, clamp } from "@/lib/math";
 
 // Max rotation cap everywhere — 30° in radians.
@@ -26,6 +27,10 @@ export function ApertureRig() {
   const mouse = useMousePosition();
   const { viewport } = useThree();
   const mobile = useIsMobile();
+  const orient = useDeviceOrientation();
+  // Calibration: capture starting beta/gamma so the mark sits flat in whatever
+  // hand position the user opens the page (instead of jumping to absolute world tilt).
+  const orientBase = useRef({ gamma: 0, beta: 0, calibrated: false });
 
   // Track raw scroll on mobile for side-to-side mark rotation.
   useEffect(() => {
@@ -89,12 +94,31 @@ export function ApertureRig() {
       ? Math.sin(scrollY.current / 260) * MAX_ROT * 0.7
       : 0;
 
+    // Mobile gyroscope tilt: device orientation drives the mark like a panel
+    // tilting in your hand. Calibrated to the first reading so any starting
+    // grip is treated as "flat". Capped to ±MAX_ROT.
+    let gyroYaw = 0;
+    let gyroPitch = 0;
+    if (mobile && orient.current.active) {
+      if (!orientBase.current.calibrated) {
+        orientBase.current.gamma = orient.current.gamma;
+        orientBase.current.beta = orient.current.beta;
+        orientBase.current.calibrated = true;
+      }
+      const dGamma = orient.current.gamma - orientBase.current.gamma; // ±90 left/right
+      const dBeta = orient.current.beta - orientBase.current.beta;    // ±180 front/back
+      // High sensitivity — only ±12° of physical tilt hits the rotation cap.
+      // Inverted so the mark turns toward the side the phone tilts down on.
+      gyroYaw = clamp((-dGamma / 12) * MAX_ROT, -MAX_ROT, MAX_ROT);
+      gyroPitch = clamp((-dBeta / 12) * MAX_ROT, -MAX_ROT, MAX_ROT) * 0.6;
+    }
+
     const baseY = mobile
-      ? mobileScrollRot
+      ? mobileScrollRot + gyroYaw
       : sway * heroWeight +
         scrollRot * (1 - heroWeight) * (1 - contactWeight);
     const targetY = baseY + mouseYaw;
-    const targetX_rot = mousePitch;
+    const targetX_rot = mobile ? gyroPitch : mousePitch;
 
     // Apply rotation: scroll/sway use slow damping, mouse adds snappier overlay.
     g.rotation.y += (targetY - g.rotation.y) * Math.max(rotDamp, mouseDamp * 0.6);
