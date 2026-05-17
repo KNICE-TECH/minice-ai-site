@@ -37,11 +37,27 @@ html, body {
   text-rendering: optimizeLegibility;
 }
 
-body { margin: 0; overflow-x: hidden; }
+html {
+  /* overflow-x:clip — same effect as hidden but does NOT create a scroll
+     container, so `position: sticky` on descendants keeps working. */
+  overflow-x: clip;
+  overscroll-behavior-y: none;
+}
 
-/* Hide scrollbars globally — virtual scroll system handles wheel events on home. */
+body {
+  margin: 0;
+  overflow-x: clip;
+}
+
+/* Hide scrollbars (Lenis handles smooth scroll on desktop) */
 ::-webkit-scrollbar { width: 0; height: 0; background: transparent; }
-* { scrollbar-width: none; -ms-overflow-style: none; }
+html { scrollbar-width: none; -ms-overflow-style: none; }
+
+/* Lenis recommended classes — applied when smooth scroll is active */
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+.lenis.lenis-stopped { overflow: clip; }
 
 button, a { font-family: inherit; color: inherit; }
 a { text-decoration: none; }

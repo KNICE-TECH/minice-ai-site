@@ -20,5 +20,9 @@ export default defineConfig({
       },
     },
   },
-  server: { port: 5173, strictPort: false },
+  server: {
+    port: 5173,
+    strictPort: false,
+    allowedHosts: [".trycloudflare.com", ".ngrok.io", ".loca.lt"],
+  },
 });

@@ -1,12 +1,12 @@
 import { useEffect, useRef } from "react";
 import { useProgressStore } from "@/scroll/progressStore";
-import { scrollToProgress } from "@/hooks/useNativeScrollProgress";
+import { scrollTo } from "@/scroll/Lenis";
 
-const STOPS = [
-  { id: "hero", label: "01", t: 0.0 },
-  { id: "projects", label: "02", t: 0.38 },
-  { id: "about", label: "03", t: 0.66 },
-  { id: "contact", label: "04", t: 0.92 },
+const STOPS: Array<{ id: string; label: string; selector: string }> = [
+  { id: "hero", label: "01", selector: "#hero" },
+  { id: "projects", label: "02", selector: "#projects" },
+  { id: "about", label: "03", selector: "#about" },
+  { id: "contact", label: "04", selector: "#contact" },
 ];
 
 export function ProgressRail() {
@@ -36,7 +36,7 @@ export function ProgressRail() {
           <li key={s.id}>
             <button
               type="button"
-              onClick={() => scrollToProgress(s.t)}
+              onClick={() => scrollTo(s.selector)}
               className="font-mono text-[9px] uppercase tracking-[0.18em] text-[color:var(--muted)] hover:text-[color:var(--bronze)] transition"
               aria-label={`Go to ${s.id}`}
             >

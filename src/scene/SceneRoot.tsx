@@ -29,10 +29,10 @@ export function SceneRoot() {
     const apply = (p: number) => {
       const el = wrapRef.current;
       if (!el) return;
-      // Ramp up around the Projects stage [0.25–0.55].
-      const blurAmt =
-        smoothstep(0.22, 0.3, p) * (1 - smoothstep(0.5, 0.58, p)) * 14; // up to 14px
-      const dim = lerp(1, 0.55, smoothstep(0.22, 0.32, p) * (1 - smoothstep(0.5, 0.58, p)));
+      // Blur during the Projects pin window (~0.20–0.60 in new layout).
+      const projectsActive = smoothstep(0.20, 0.30, p) * (1 - smoothstep(0.55, 0.65, p));
+      const blurAmt = projectsActive * 14;
+      const dim = lerp(1, 0.55, projectsActive);
       el.style.filter = blurAmt > 0.1 ? `blur(${blurAmt.toFixed(2)}px)` : "none";
       el.style.opacity = String(dim);
     };

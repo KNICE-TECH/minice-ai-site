@@ -1,40 +1,47 @@
-import { useEffect } from "react";
-import { Stage } from "@/components/Stage";
+import { useEffect, useRef } from "react";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Hero } from "@/sections/Hero";
 import { Projects } from "@/sections/Projects";
 import { About } from "@/sections/About";
 import { Contact } from "@/sections/Contact";
 import { applyMeta, seo } from "@/lib/seo";
-import { useNativeScrollProgress } from "@/hooks/useNativeScrollProgress";
 import { ProgressRail } from "@/components/ProgressRail";
-
-const PAGE_VH = 320; // total scroll length — short enough that transitions feel responsive
+import { useProgressStore } from "@/scroll/progressStore";
 
 export default function Home() {
-  useEffect(() => applyMeta(seo.home), []);
-  useNativeScrollProgress();
+  const mainRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    applyMeta(seo.home);
+  }, []);
+
+  // Global progress trigger: drives the 3D mark across the whole page scroll.
+  useEffect(() => {
+    const main = mainRef.current;
+    if (!main) return;
+    const setProgress = useProgressStore.getState().set;
+    const trigger = ScrollTrigger.create({
+      trigger: main,
+      start: "top top",
+      end: "bottom bottom",
+      onUpdate: (self) => setProgress(self.progress),
+      onRefresh: (self) => setProgress(self.progress),
+    });
+    // Force an initial refresh after sections mount + layout
+    requestAnimationFrame(() => ScrollTrigger.refresh());
+    return () => {
+      trigger.kill();
+      setProgress(0);
+    };
+  }, []);
 
   return (
-    <>
-      {/* Spacer: provides the scroll length the native browser scroll consumes */}
-      <div style={{ height: `${PAGE_VH}vh` }} aria-hidden="true" />
-
-      {/* Fixed visual stage: stays in the viewport while user scrolls the spacer above */}
-      <div className="fixed inset-0 z-10 overflow-hidden pointer-events-none">
-        <Stage id="hero" range={[0.0, 0.25]} enter={0}>
-          <Hero />
-        </Stage>
-        <Stage id="projects" range={[0.25, 0.55]}>
-          <Projects />
-        </Stage>
-        <Stage id="about" range={[0.55, 0.8]}>
-          <About />
-        </Stage>
-        <Stage id="contact" range={[0.8, 1.0]} exit={0}>
-          <Contact />
-        </Stage>
-        <ProgressRail />
-      </div>
-    </>
+    <main ref={mainRef} className="relative z-10">
+      <Hero />
+      <Projects />
+      <About />
+      <Contact />
+      <ProgressRail />
+    </main>
   );
 }

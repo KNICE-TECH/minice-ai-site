@@ -4,7 +4,7 @@ import * as THREE from "three";
 import { bladePoseFor } from "./bladePoseFor";
 import { useProgressStore } from "@/scroll/progressStore";
 import { useMousePosition } from "@/hooks/useMousePosition";
-import { smoothstep, lerp } from "@/lib/math";
+import { smoothstep } from "@/lib/math";
 
 type Props = { index: 0 | 1 | 2; color: string; opacity?: number };
 type V2 = [number, number];

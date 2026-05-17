@@ -30,13 +30,15 @@ const easeOutBack = (t: number) => {
 const OPEN_SPIN = [-0.25, 0.25, 0.45];
 
 export function bladePoseFor(progress: number, index: 0 | 1 | 2): BladePose {
-  const sBase = 0.12 + STAGGER[index];
-  const openRaw = smoothstep(sBase, sBase + 0.2, progress);
+  // Layout: Hero 100dvh (0–0.167) | Projects 300dvh (0.167–0.667)
+  //         | About 150dvh (0.667–0.917) | Contact 150dvh (0.917–1.0)
+  const sBase = 0.13 + STAGGER[index];
+  const openRaw = smoothstep(sBase, sBase + 0.13, progress); // iris opens early in Projects pin
   const open = easeOutBack(openRaw);
-  const fanned = smoothstep(0.3, 0.5, progress);
-  const reformLens = smoothstep(0.5, 0.62, progress);
-  const seal = smoothstep(0.75, 0.85, progress);
-  const tail = smoothstep(0.92, 1.0, progress);
+  const fanned = smoothstep(0.25, 0.55, progress);            // mid Projects
+  const reformLens = smoothstep(0.55, 0.68, progress);        // late Projects → About
+  const seal = smoothstep(0.86, 0.94, progress);              // About → Contact
+  const tail = smoothstep(0.95, 1.0, progress);
 
   let spinZ = 0;
   let posX = 0;
@@ -91,13 +93,11 @@ export function bladePoseFor(progress: number, index: 0 | 1 | 2): BladePose {
 }
 
 export function cameraPoseFor(progress: number) {
-  const irisOpen = smoothstep(0.12, 0.32, progress);
-  const aboutBand = smoothstep(0.55, 0.7, progress);
-  const contactBand = smoothstep(0.8, 0.92, progress);
+  const irisOpen = smoothstep(0.13, 0.28, progress);
+  const aboutBand = smoothstep(0.66, 0.80, progress);
+  const contactBand = smoothstep(0.92, 0.98, progress);
 
-  // Camera dollies IN slightly during the opening (pushes us "through" the iris),
-  // then pulls back out for the projects view.
-  const dolly = irisOpen * (1 - smoothstep(0.28, 0.45, progress));
+  const dolly = irisOpen * (1 - smoothstep(0.25, 0.4, progress));
   const z = lerp(4.6, 5.4, irisOpen) - 1.2 * dolly - 0.3 * aboutBand + 0.15 * contactBand;
   const fov = lerp(32, 44, irisOpen) + 6 * dolly;
 
