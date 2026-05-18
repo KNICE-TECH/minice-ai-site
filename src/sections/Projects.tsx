@@ -25,7 +25,11 @@ export function Projects() {
     const sticky = stickyRef.current;
     if (!inner || !sticky) return;
 
-    const computeOverflow = () => Math.max(0, inner.offsetHeight - sticky.offsetHeight);
+    // Inner lives inside a padded (pt-28 pb-16) wrapper — measure that
+    // wrapper's height, not the sticky's, so the bottom row isn't clipped.
+    const padded = inner.parentElement;
+    const computeOverflow = () =>
+      Math.max(0, inner.offsetHeight - (padded?.clientHeight ?? sticky.offsetHeight));
     let overflow = computeOverflow();
 
     const tl = gsap.timeline({
