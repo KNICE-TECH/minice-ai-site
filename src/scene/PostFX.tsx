@@ -6,11 +6,14 @@ import { KernelSize } from "postprocessing";
 export function PostFX() {
   return (
     <EffectComposer multisampling={0}>
+      {/* Threshold pushed well above 1 so a single bright facet spec doesn't
+          balloon through bloom. Only the deliberately-bright additive edge
+          lines (color > 1.0 via toneMapped: false) cross the gate. */}
       <Bloom
-        intensity={0.55}
-        luminanceThreshold={1.2}
-        luminanceSmoothing={0.5}
-        kernelSize={KernelSize.MEDIUM}
+        intensity={0.32}
+        luminanceThreshold={1.9}
+        luminanceSmoothing={0.35}
+        kernelSize={KernelSize.SMALL}
         mipmapBlur
       />
       <Vignette eskil={false} offset={0.32} darkness={0.5} />

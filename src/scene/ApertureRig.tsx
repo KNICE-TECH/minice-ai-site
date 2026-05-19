@@ -32,6 +32,78 @@ export function ApertureRig() {
   // hand position the user opens the page (instead of jumping to absolute world tilt).
   const orientBase = useRef({ gamma: 0, beta: 0, calibrated: false });
 
+  // User drag-to-rotate. Accumulates as an OFFSET on top of the sway/scroll/
+  // parallax behaviour, so the user can spin the mark around at will without
+  // killing the ambient motion. After release the offset slowly decays back
+  // toward zero so the logo eventually returns to its choreographed pose.
+  const dragRot = useRef({ x: 0, y: 0, active: false });
+
+  useEffect(() => {
+    let lastX = 0;
+    let lastY = 0;
+    let dragging = false;
+
+    const startable = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) return false;
+      // Don't hijack clicks on interactive UI — buttons, links, inputs,
+      // form controls, anything inside a card/article. Press has to land
+      // on the bare backdrop / canvas wrapper.
+      if (
+        target.closest(
+          'button, a, input, textarea, select, [role="button"], [role="link"], article, label, [contenteditable="true"]',
+        )
+      ) {
+        return false;
+      }
+      return true;
+    };
+
+    const onDown = (e: PointerEvent) => {
+      if (e.button !== 0) return; // primary button only
+      if (!startable(e.target)) return;
+      dragging = true;
+      dragRot.current.active = true;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      document.body.style.cursor = "grabbing";
+      // Disable text selection while dragging.
+      document.body.style.userSelect = "none";
+    };
+    const onMove = (e: PointerEvent) => {
+      if (!dragging) return;
+      const dx = e.clientX - lastX;
+      const dy = e.clientY - lastY;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      // Pixels → radians. 220 px ≈ 90° feels natural.
+      dragRot.current.y += dx * (Math.PI / 220);
+      dragRot.current.x += dy * (Math.PI / 220);
+      // Clamp pitch so the user can't flip the mark fully upside-down
+      // (the back face is intentionally minimalist).
+      dragRot.current.x = clamp(dragRot.current.x, -Math.PI / 2.2, Math.PI / 2.2);
+    };
+    const onUp = () => {
+      if (!dragging) return;
+      dragging = false;
+      dragRot.current.active = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+
+    window.addEventListener("pointerdown", onDown);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    return () => {
+      window.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+  }, []);
+
   // Track raw scroll on mobile for side-to-side mark rotation.
   useEffect(() => {
     if (!mobile) return;
@@ -117,12 +189,25 @@ export function ApertureRig() {
       ? mobileScrollRot + gyroYaw
       : sway * heroWeight +
         scrollRot * (1 - heroWeight) * (1 - contactWeight);
-    const targetY = baseY + mouseYaw;
-    const targetX_rot = mobile ? gyroPitch : mousePitch;
 
-    // Apply rotation: scroll/sway use slow damping, mouse adds snappier overlay.
-    g.rotation.y += (targetY - g.rotation.y) * Math.max(rotDamp, mouseDamp * 0.6);
-    g.rotation.x += (targetX_rot - g.rotation.x) * mouseDamp;
+    // Drag-rotate offset. While the user is actively dragging, the offset
+    // builds up freely. After release it decays back to zero over ~5s so
+    // the choreographed motion eventually reclaims the mark.
+    if (!dragRot.current.active) {
+      const decay = 1 - Math.min(1, delta * 0.4);
+      dragRot.current.x *= decay;
+      dragRot.current.y *= decay;
+    }
+
+    const targetY = baseY + mouseYaw + dragRot.current.y;
+    const targetX_rot = (mobile ? gyroPitch : mousePitch) + dragRot.current.x;
+
+    // While dragging, snap nearly instantly to the user input; otherwise
+    // use the existing damped behaviour for sway/scroll/parallax.
+    const snap = dragRot.current.active ? 1 : Math.max(rotDamp, mouseDamp * 0.6);
+    g.rotation.y += (targetY - g.rotation.y) * snap;
+    g.rotation.x +=
+      (targetX_rot - g.rotation.x) * (dragRot.current.active ? 1 : mouseDamp);
   });
 
   return (

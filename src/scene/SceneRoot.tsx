@@ -89,11 +89,15 @@ export function SceneRoot() {
         gl={{ antialias: !lowEnd, powerPreference: "high-performance" }}
       >
         <color attach="background" args={["#0a0a0a"]} />
-        <Environment preset="apartment" environmentIntensity={0.35} />
-        <hemisphereLight args={["#fff5e3", "#e8a87c", 0.35]} />
-        <pointLight position={[2.5, 1.8, 4]} intensity={22} distance={10} decay={1.4} color="#fff1de" />
-        <pointLight position={[-2.5, -1.5, 4]} intensity={16} distance={10} decay={1.4} color="#e8a87c" />
-        <ambientLight intensity={0.25} color="#f5f4f1" />
+        {/* Lighting tuned for the glass material: physical glass shows scene
+            reflections (the Environment) more than direct point-light hits,
+            so we lean on the env map and dial the point/ambient lights way
+            down to kill the "lit from a stadium" overbright. */}
+        <Environment preset="apartment" environmentIntensity={0.30} />
+        <hemisphereLight args={["#fff5e3", "#e8a87c", 0.26]} />
+        <pointLight position={[2.5, 1.8, 4]} intensity={13} distance={10} decay={1.55} color="#fff1de" />
+        <pointLight position={[-2.5, -1.5, 4]} intensity={10} distance={10} decay={1.55} color="#e8a87c" />
+        <ambientLight intensity={0.18} color="#f5f4f1" />
         <Suspense fallback={null}>
           <ApertureRig />
         </Suspense>
