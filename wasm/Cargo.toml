@@ -1,0 +1,24 @@
+[package]
+name = "decrypt"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+aes-gcm = { version = "0.10", default-features = false, features = ["aes", "alloc"] }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+
+# wasm-pack ships an older wasm-opt that lacks --enable-bulk-memory by
+# default; rustc emits bulk-memory ops nowadays. Tell wasm-pack to pass
+# the flag through, otherwise the post-build opt pass fails.
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ["-Os", "--enable-bulk-memory"]

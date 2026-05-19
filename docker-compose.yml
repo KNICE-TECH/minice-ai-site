@@ -1,0 +1,25 @@
+# Local prod-like run:
+#   1) Put MODEL_KEY + SIGNING_KEY into .env (bun scripts/gen-keys.ts).
+#   2) docker compose up --build
+#   3) Open http://localhost:8080
+#
+# MODEL_KEY is used at BUILD TIME (baked into the WASM binary +
+# encrypts the .vrm). SIGNING_KEY is read at RUNTIME (HMAC for
+# token sign/verify); the container reads .env via env_file.
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        MODEL_KEY: ${MODEL_KEY}
+    image: minice-site:local
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: "8080"
+    restart: unless-stopped

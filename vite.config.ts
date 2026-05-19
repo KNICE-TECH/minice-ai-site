@@ -24,5 +24,13 @@ export default defineConfig({
     port: 5173,
     strictPort: false,
     allowedHosts: [".trycloudflare.com", ".ngrok.io", ".loca.lt"],
+    proxy: {
+      // Forward /api/* to the local Hono server during development.
+      // In production, Hono itself serves dist/ and there is no proxy.
+      "/api": {
+        target: "http://localhost:8080",
+        changeOrigin: true,
+      },
+    },
   },
 });

@@ -5,3 +5,11 @@ dist
 bash.exe.stackdump
 *.tsbuildinfo
 .vite
+
+# secrets & build artifacts for asset protection
+.env
+.env.local
+assets-src/
+server/assets/*.bin
+src/wasm/pkg/
+wasm/target/

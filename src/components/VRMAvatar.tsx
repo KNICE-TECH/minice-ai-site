@@ -4,6 +4,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { KTX2Loader } from "three/examples/jsm/loaders/KTX2Loader.js";
 import { VRMLoaderPlugin, VRMUtils, type VRM } from "@pixiv/three-vrm";
 import { bootSignal } from "@/lib/bootSignal";
+import { loadProtectedAsset } from "@/lib/protectedAsset";
 
 type VRMAvatarProps = {
   url: string;
@@ -83,21 +84,14 @@ export function VRMAvatar({ url, className }: VRMAvatarProps) {
     key.position.set(0, 2, 3);
     scene.add(key);
 
-    // Shared LoadingManager — tracks the GLB plus every KTX2 texture it pulls.
-    // We hook onProgress for the in-canvas progress bar and onLoad to know the
-    // exact moment every asset is in memory (parsed + transcoded).
+    // KTX2 textures inside the GLB still go through three's loader, but the
+    // GLB itself comes from the protected pipeline (token + encrypted blob +
+    // WASM decrypt) — never as a raw .vrm URL. The LoadingManager exists
+    // only to keep the KTX2 loader's progress events flowing.
     const manager = new THREE.LoadingManager();
-    manager.onProgress = (_url, loaded, total) => {
-      if (disposed) return;
-      const p = total > 0 ? loaded / total : 0;
-      setProgress(p);
-      // Cap manager progress at 0.95 — last 5% is reserved for compile + warm
-      // render so the splash bar doesn't sit at 100% while GPU upload happens.
-      bootSignal.setProgress(p * 0.95);
-    };
     manager.onError = (u) => {
       if (disposed) return;
-      console.error("VRM asset failed", u);
+      console.error("KTX2 asset failed", u);
     };
 
     const ktx2Loader = new KTX2Loader(manager)
@@ -108,80 +102,100 @@ export function VRMAvatar({ url, className }: VRMAvatarProps) {
     loader.setKTX2Loader(ktx2Loader);
     loader.register((parser) => new VRMLoaderPlugin(parser));
 
-    // Defer the actual loader.load() into idle time so the React commit + any
-    // in-flight scroll/layout settles before the GLB parse spike kicks in.
+    // Defer the heavy work into idle time so the React commit + any in-flight
+    // scroll/layout settles before the network fetch + WASM decrypt spike.
     const ric: (cb: () => void) => number =
       (window as unknown as { requestIdleCallback?: (cb: () => void) => number })
         .requestIdleCallback ?? ((cb) => window.setTimeout(cb, 200));
 
-    const startLoad = () => {
+    // The `url` prop is now a *name* (e.g. "nayu") passed to the protected
+    // pipeline, not a fetchable URL. Strip a leading slash for backward
+    // compatibility with the previous API.
+    const assetName = url.replace(/^\/+/, "").replace(/\.[a-z0-9]+$/i, "");
+
+    const startLoad = async () => {
       if (disposed) return;
-      loader.load(
-        url,
-        (gltf) => {
+      try {
+        // Fetch the encrypted blob and decrypt in WASM. Progress here is
+        // download-only (0..0.8); transcode + parse + compile cover the rest.
+        const plain = await loadProtectedAsset(assetName, (p) => {
           if (disposed) return;
-          const loaded = gltf.userData.vrm as VRM | undefined;
-          if (!loaded) {
-            setError("not a VRM file");
-            return;
-          }
-          VRMUtils.removeUnnecessaryVertices(gltf.scene);
-          VRMUtils.combineSkeletons(gltf.scene);
+          setProgress(p);
+          bootSignal.setProgress(p * 0.8);
+        });
+        if (disposed) return;
 
-          const humanoid = loaded.humanoid;
-          const leftUpperArm = humanoid?.getNormalizedBoneNode("leftUpperArm");
-          const rightUpperArm = humanoid?.getNormalizedBoneNode("rightUpperArm");
-          const leftLowerArm = humanoid?.getNormalizedBoneNode("leftLowerArm");
-          const rightLowerArm = humanoid?.getNormalizedBoneNode("rightLowerArm");
-          if (leftUpperArm) leftUpperArm.rotation.z = -1.3;
-          if (rightUpperArm) rightUpperArm.rotation.z = 1.3;
-          if (leftLowerArm) leftLowerArm.rotation.z = -0.15;
-          if (rightLowerArm) rightLowerArm.rotation.z = 0.15;
+        // parse() takes the GLB bytes directly — no URL ever hits the wire
+        // for the actual model. KTX2 transcode + texture upload happen here.
+        bootSignal.setProgress(0.85);
+        loader.parse(
+          plain,
+          "",
+          (gltf) => {
+            if (disposed) return;
+            const loaded = gltf.userData.vrm as VRM | undefined;
+            if (!loaded) {
+              setError("not a VRM file");
+              return;
+            }
+            VRMUtils.removeUnnecessaryVertices(gltf.scene);
+            VRMUtils.combineSkeletons(gltf.scene);
 
-          scene.add(loaded.scene);
-          vrm = loaded;
-          // Parse spike is past — bump to the target quality DPR for steady state.
-          renderer.setPixelRatio(targetDPR);
-          const cw = Math.max(canvas.clientWidth, 320);
-          const ch = Math.max(canvas.clientHeight, 320);
-          renderer.setSize(cw, ch, false);
-          camera.aspect = cw / ch;
-          camera.updateProjectionMatrix();
+            const humanoid = loaded.humanoid;
+            const leftUpperArm = humanoid?.getNormalizedBoneNode("leftUpperArm");
+            const rightUpperArm = humanoid?.getNormalizedBoneNode("rightUpperArm");
+            const leftLowerArm = humanoid?.getNormalizedBoneNode("leftLowerArm");
+            const rightLowerArm = humanoid?.getNormalizedBoneNode("rightLowerArm");
+            if (leftUpperArm) leftUpperArm.rotation.z = -1.3;
+            if (rightUpperArm) rightUpperArm.rotation.z = 1.3;
+            if (leftLowerArm) leftLowerArm.rotation.z = -0.15;
+            if (rightLowerArm) rightLowerArm.rotation.z = 0.15;
 
-          // Pre-warm: compile materials + upload textures to the GPU now,
-          // synchronously, so the FIRST visible frame doesn't pay that cost.
-          // Without this, the user sees a 100-300ms hitch on the first render
-          // after the model appears.
-          try {
-            renderer.compile(scene, camera);
-          } catch (e) {
-            console.warn("compile failed", e);
-          }
+            scene.add(loaded.scene);
+            vrm = loaded;
+            renderer.setPixelRatio(targetDPR);
+            const cw = Math.max(canvas.clientWidth, 320);
+            const ch = Math.max(canvas.clientHeight, 320);
+            renderer.setSize(cw, ch, false);
+            camera.aspect = cw / ch;
+            camera.updateProjectionMatrix();
 
-          // Render one warm-up frame off-screen worth (cheap now, GPU primed).
-          renderer.render(scene, camera);
+            // Pre-warm: compile materials + upload textures to the GPU now,
+            // synchronously, so the FIRST visible frame doesn't pay that cost.
+            try {
+              renderer.compile(scene, camera);
+            } catch (e) {
+              console.warn("compile failed", e);
+            }
 
-          setLoading(false);
+            renderer.render(scene, camera);
+            setProgress(1);
+            setLoading(false);
 
-          // Now everything is parsed, transcoded, uploaded and a warm frame is
-          // on the canvas — safe to release the boot splash.
-          if (!signalled) {
+            if (!signalled) {
+              bootSignal.markReady();
+              signalled = true;
+            }
+          },
+          (err) => {
+            if (disposed) return;
+            console.error("VRM parse failed", err);
+            setError("parse failed");
             bootSignal.markReady();
             signalled = true;
-          }
-        },
-        undefined,
-        (err) => {
-          if (disposed) return;
-          console.error("VRM load failed", err);
-          setError("load failed");
-          // Signal ready even on failure so the boot splash doesn't strand.
-          bootSignal.markReady();
-          signalled = true;
-        },
-      );
+          },
+        );
+      } catch (err) {
+        if (disposed) return;
+        console.error("VRM load failed", err);
+        setError("load failed");
+        bootSignal.markReady();
+        signalled = true;
+      }
     };
-    ric(startLoad);
+    ric(() => {
+      void startLoad();
+    });
 
     function onMove(e: MouseEvent) {
       if (!canvas) return;

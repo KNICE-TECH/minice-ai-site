@@ -1,0 +1,27 @@
+node_modules
+dist
+.git
+.github
+.vscode
+.idea
+.DS_Store
+*.log
+bash.exe.stackdump
+*.tsbuildinfo
+.vite
+
+# secrets must never enter the build context
+.env
+.env.local
+
+# wasm intermediates
+wasm/target
+src/wasm/pkg
+
+# encrypted blobs from local builds (we re-encrypt inside the image)
+server/assets/*.bin
+
+# Source assets are passed in via the build context but EXCLUDE
+# the .vrm if you want a paranoid build that pulls the file in
+# from an external secret store. For now we trust the build host:
+# assets-src/ stays so the encrypt stage can read it.
