@@ -16,7 +16,11 @@ export default function Privacy() {
           ← home
         </Link>
         <h1 className="mt-8 font-display font-bold text-4xl sm:text-5xl">{t.privacy.title}</h1>
-        <p className="mt-8 text-[color:var(--cream)]/80 leading-relaxed">{t.privacy.body}</p>
+        <div className="mt-8 space-y-5 text-[color:var(--cream)]/80 leading-relaxed">
+          {t.privacy.body.split("\n\n").map((para) => (
+            <p key={para}>{para}</p>
+          ))}
+        </div>
       </div>
     </main>
   );

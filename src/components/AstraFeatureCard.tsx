@@ -99,7 +99,7 @@ export function AstraFeatureCard({ project }: Props) {
                 </div>
               }
             >
-              <VRMAvatar url="/nayu.vrm" />
+              <VRMAvatar url="nayu" />
             </Suspense>
           ) : (
             <div className="absolute inset-0 flex items-center justify-center font-mono text-[10px] uppercase tracking-[.22em] text-white/30">
@@ -112,7 +112,15 @@ export function AstraFeatureCard({ project }: Props) {
           </div>
           <div className="pointer-events-none absolute bottom-4 left-4 right-4 flex items-center justify-between font-mono text-[10px] uppercase tracking-[.22em] text-white/45">
             <span>click · cycle emotion</span>
-            <span>nayu.vrm</span>
+            <a
+              href="https://booth.pm/en/items/4023598"
+              target="_blank"
+              rel="noreferrer noopener"
+              title="Nayu by 有坂みと (Mito Arisaka) — BOOTH"
+              className="pointer-events-auto hover:text-[color:var(--bronze)] transition"
+            >
+              nayu · 有坂みと ↗
+            </a>
           </div>
         </div>
 

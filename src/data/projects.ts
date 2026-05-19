@@ -17,7 +17,7 @@ export const projects: Project[] = [
     status: "in-dev",
     tagline: "Your AI companion.",
     blurb:
-      "An anime-adjacent desktop companion that lives at the edge of your screen. Built on a custom runtime, polished daily.",
+      "An anime-adjacent desktop companion that lives at the edge of your screen. Built on a custom Rust runtime — voice-first, offline-capable, always nearby.",
     href: "https://astra.minice.ai",
     external: true,
   },
@@ -27,7 +27,7 @@ export const projects: Project[] = [
     status: "retired",
     tagline: "Where Astra came from.",
     blurb:
-      "Our WinUI 3 predecessor. Stella taught us what a desktop companion should and shouldn't be — its lessons live inside Astra.",
+      "Our first assistant. Python, 2023. Stella was rough, local, and ours — it taught us what a desktop companion should, and shouldn't, be. Those lessons are baked into Astra.",
   },
   {
     id: "horizon",
@@ -40,7 +40,7 @@ export const projects: Project[] = [
     id: "atlas",
     name: "???",
     status: "coming-soon",
-    tagline: "Aperture is widening.",
+    tagline: "Another facet, taking shape.",
     blurb: "Locked.",
   },
 ];
