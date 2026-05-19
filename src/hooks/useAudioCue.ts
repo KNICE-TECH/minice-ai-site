@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ambient } from "@/audio/ambientEngine";
 
 const KEY = "minice.audio.enabled";
+const EVT = "minice:audio-toggle";
+
+function readEnabled(): boolean {
+  if (typeof window === "undefined") return true;
+  // Default ON — audio plays unless the user has explicitly turned it off.
+  return localStorage.getItem(KEY) !== "0";
+}
 
 function makeShutterBuffer(ctx: AudioContext) {
   const sampleRate = ctx.sampleRate;
@@ -19,16 +27,14 @@ function makeShutterBuffer(ctx: AudioContext) {
 }
 
 export function useAudioCue() {
-  const [enabled, setEnabled] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem(KEY) === "1";
-  });
+  const [enabled, setEnabled] = useState<boolean>(readEnabled);
   const ctxRef = useRef<AudioContext | null>(null);
   const bufferRef = useRef<AudioBuffer | null>(null);
 
   const ensure = useCallback(() => {
     if (!ctxRef.current) {
       const AC = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AC) return;
       ctxRef.current = new AC();
       bufferRef.current = makeShutterBuffer(ctxRef.current);
     }
@@ -47,15 +53,37 @@ export function useAudioCue() {
   }, [enabled]);
 
   const toggle = useCallback(() => {
-    setEnabled((v) => {
-      const next = !v;
-      try {
-        localStorage.setItem(KEY, next ? "1" : "0");
-      } catch {}
-      if (next) ensure();
-      return next;
-    });
+    const next = !readEnabled();
+    try {
+      localStorage.setItem(KEY, next ? "1" : "0");
+    } catch {}
+    if (next) {
+      ensure();
+      ambient.start();
+    } else {
+      ambient.stop();
+    }
+    window.dispatchEvent(new CustomEvent(EVT, { detail: next }));
   }, [ensure]);
+
+  // Sync local state with the global flag — both the footer toggle and
+  // (eventually) any other entry-point flip the same key, so every hook
+  // instance hears about it.
+  useEffect(() => {
+    const onEvt = (e: Event) => {
+      const v = (e as CustomEvent<boolean>).detail;
+      setEnabled(v);
+    };
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === KEY) setEnabled(e.newValue === "1");
+    };
+    window.addEventListener(EVT, onEvt);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener(EVT, onEvt);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
 
   useEffect(() => {
     if (enabled) ensure();
