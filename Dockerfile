@@ -30,9 +30,12 @@ RUN MODEL_KEY=$MODEL_KEY wasm-pack build \
     ./wasm
 
 # ─────────────────────────────────────────────────────────────────────
-# Stage 2 — build (frontend + encrypted asset)
-#   Encrypts the .vrm source with the same MODEL_KEY, runs `vite build`
-#   with the WASM artefacts from stage 1 vendored into src/wasm/pkg.
+# Stage 2 — build (frontend)
+#   Runs `vite build` with the WASM artefacts from stage 1 vendored into
+#   src/wasm/pkg. The encrypted asset (server/assets/nayu.bin) is NOT
+#   produced here — it is committed to the repo already (safe: it's
+#   AES-256-GCM ciphertext). The raw .vrm never enters the build context
+#   so this works from a public repo / clean CI checkout.
 # ─────────────────────────────────────────────────────────────────────
 FROM oven/bun:1.3 AS build
 WORKDIR /app
@@ -47,10 +50,6 @@ COPY . .
 # Bring in the WASM artefact from stage 1.
 COPY --from=wasm /out/wasm/pkg ./src/wasm/pkg
 
-# Encrypt the source asset, then build the SPA.
-ARG MODEL_KEY
-RUN test -n "$MODEL_KEY" || (echo "MODEL_KEY build arg required" && exit 1)
-RUN MODEL_KEY=$MODEL_KEY bun scripts/encrypt-asset.ts
 RUN bun run build:web
 
 # ─────────────────────────────────────────────────────────────────────

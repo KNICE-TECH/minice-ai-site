@@ -9,7 +9,9 @@ bash.exe.stackdump
 # secrets & build artifacts for asset protection
 .env
 .env.local
+# Raw licensed VRM — never commit (public repo). The ENCRYPTED blob
+# server/assets/nayu.bin IS committed: it's AES-256-GCM ciphertext,
+# safe to publish, and the CI image build needs it.
 assets-src/
-server/assets/*.bin
 src/wasm/pkg/
 wasm/target/

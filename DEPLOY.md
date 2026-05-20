@@ -1,91 +1,74 @@
-# Deploying minice.ai to a Docker VPS
+# Deploying minice.ai
 
-The site is a single Docker image: a Bun + Hono server that serves the
-built SPA and gates the protected VRM asset. No external services.
-
-## 0. One-time: generate production secrets
-
-The dev `.env` keys must NOT be reused in production — they've been
-handled in plaintext during development.
-
-On the **build machine** (or locally, then transfer):
-
-```bash
-# Generates fresh MODEL_KEY + SIGNING_KEY into .env if absent.
-# To force-rotate, delete the two lines from .env first.
-bun scripts/gen-keys.ts
-```
-
-- `MODEL_KEY` — encrypts the VRM and is baked into the WASM at build
-  time. Build-time secret.
-- `SIGNING_KEY` — signs `/api/token` HMACs. Runtime secret.
-
-Keep `.env` off git (it already is, via `.gitignore`) and out of any
-shared channel. Treat it like an SSH key.
-
-## 1. Build the image
-
-`MODEL_KEY` is a **build arg** — it both encrypts `assets-src/nayu.vrm`
-and is compiled into the WASM decryptor:
-
-```bash
-MODEL_KEY=$(grep '^MODEL_KEY=' .env | cut -d= -f2)
-docker build --build-arg MODEL_KEY="$MODEL_KEY" -t minice-site:prod .
-```
-
-The 3-stage build:
-1. `rust:1.83-slim` → `wasm-pack` builds the decryptor.
-2. `oven/bun:1.3` → encrypts the VRM, runs `vite build`.
-3. `oven/bun:1.3-slim` → runtime image (Bun + server + dist + blobs).
-
-The source `.vrm` never lands in the final image — only the encrypted
-`server/assets/nayu.bin`.
-
-## 2. Ship the image to the VPS
-
-Either build directly on the VPS, or build locally and transfer:
-
-```bash
-# Option A — build on the VPS (needs Docker there).
-# Option B — transfer a local build:
-docker save minice-site:prod | gzip | ssh user@vps 'gunzip | docker load'
-```
-
-## 3. Run on the VPS
-
-`SIGNING_KEY` is read at **runtime** — pass it via env file. `MODEL_KEY`
-is NOT needed at runtime (it's already baked into the image artifacts).
-
-Create `/opt/minice/.env` on the VPS:
+The site ships as one Docker image — a Bun + Hono server that serves the
+built SPA and gates the protected VRM asset. GitHub Actions builds and
+publishes the image; Dockge on the server pulls and runs it.
 
 ```
-SIGNING_KEY=<the SIGNING_KEY value>
-NODE_ENV=production
-PORT=8080
+push to main ──▶ GitHub Actions ──▶ ghcr.io/<owner>/minice-ai-site:latest
+                                          │
+                              Dockge "update" button
+                                          │
+                                    docker compose pull && up -d
 ```
 
-Then:
+## Keys — how they split
 
-```bash
-docker run -d --name minice \
-  --env-file /opt/minice/.env \
-  -p 127.0.0.1:8080:8080 \
-  --restart unless-stopped \
-  minice-site:prod
+- **MODEL_KEY** — 32-byte hex. Encrypts `assets-src/nayu.vrm` into
+  `server/assets/nayu.bin` AND is baked into the WASM decryptor at build
+  time. **Build-time only.** Lives in local `.env` and as a GitHub
+  Actions secret.
+- **SIGNING_KEY** — 32-byte hex. Signs `/api/token` HMACs. **Runtime
+  only.** Lives in local `.env` and in the Dockge stack's env.
+
+The encrypted `server/assets/nayu.bin` IS committed to the repo — it's
+AES-256-GCM ciphertext, safe to publish, and the CI build needs it. The
+raw `assets-src/nayu.vrm` is gitignored and never leaves your machine.
+
+## One-time setup
+
+### 1. GitHub — MODEL_KEY secret
+
+Repo → Settings → Secrets and variables → Actions → New repository
+secret:
+
+- Name: `MODEL_KEY`
+- Value: the `MODEL_KEY` line from your local `.env`
+
+It MUST match the key that encrypted the committed `nayu.bin`. If they
+diverge, the WASM decrypt fails at runtime.
+
+### 2. First image build
+
+Push to `main` (or run the workflow manually from the Actions tab). The
+workflow publishes `ghcr.io/<owner>/minice-ai-site:latest`.
+
+If the GHCR package starts private, either make it public (Package
+settings → Change visibility) or give the server a pull token. Public is
+fine — the image only contains what the live site already exposes.
+
+### 3. Server — Dockge stack
+
+In Dockge, create a new stack named `minice`, paste `docker-compose.yml`
+from this repo, and set the stack `.env`:
+
+```
+SIGNING_KEY=<the SIGNING_KEY from your local .env>
 ```
 
-Bind to `127.0.0.1` so the container is only reachable through the
-reverse proxy, not directly from the internet.
+Deploy. The container binds `127.0.0.1:8088` — NOT exposed to the
+internet, only reachable through the reverse proxy.
 
-## 4. Reverse proxy + TLS
+### 4. Reverse proxy + TLS
 
-Put nginx (or Caddy) in front for HTTPS on `minice.ai`. Minimal nginx:
+Point nginx / Caddy / Nginx-Proxy-Manager at `127.0.0.1:8088`. Minimal
+nginx:
 
 ```nginx
 server {
   server_name minice.ai;
   location / {
-    proxy_pass http://127.0.0.1:8080;
+    proxy_pass http://127.0.0.1:8088;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -94,42 +77,54 @@ server {
 ```
 
 `X-Forwarded-For` / `X-Real-IP` matter — the `/api/token` rate limiter
-reads them to bucket per client. Without them every request looks like
-one IP and the limiter would throttle everyone together.
+buckets per client off them. Without them every request looks like one
+IP. Get the cert with `certbot --nginx -d minice.ai`.
 
-Get the cert with `certbot --nginx -d minice.ai`.
+### 5. DNS
 
-## 5. DNS
+`A` record for `minice.ai` → server IP. `astra.minice.ai` is a separate
+property, not served by this image.
 
-Point an `A` record for `minice.ai` (and `www` if wanted) at the VPS
-IP. `astra.minice.ai` is a separate property — not served by this
-image.
+## Updating the site
 
-## Updating the site later
+1. Commit + push to `main`.
+2. GitHub Actions rebuilds and publishes `:latest`.
+3. Hit "update" in the Dockge stack — it pulls the new image and
+   recreates the container.
+
+## Rotating keys
+
+- **SIGNING_KEY** — change it in the Dockge stack env and redeploy.
+  In-flight tokens (60s TTL) just expire. No rebuild.
+- **MODEL_KEY** — heavier. Locally:
+  1. Put the new key in `.env`.
+  2. `bun run build:wasm` (rebakes the WASM).
+  3. `bun run build:encrypt` (re-encrypts `nayu.bin`).
+  4. Commit the new `server/assets/nayu.bin`.
+  5. Update the `MODEL_KEY` GitHub Actions secret to match.
+  6. Push — CI rebuilds with the new key.
+
+## Local prod-like run (no server)
 
 ```bash
-git pull
 MODEL_KEY=$(grep '^MODEL_KEY=' .env | cut -d= -f2)
-docker build --build-arg MODEL_KEY="$MODEL_KEY" -t minice-site:prod .
-docker stop minice && docker rm minice
-docker run -d --name minice --env-file /opt/minice/.env \
-  -p 127.0.0.1:8080:8080 --restart unless-stopped minice-site:prod
+docker build --build-arg MODEL_KEY="$MODEL_KEY" -t minice-site:local .
+SIGNING_KEY=$(grep '^SIGNING_KEY=' .env | cut -d= -f2)
+docker run -d --name minice --restart unless-stopped \
+  -e SIGNING_KEY="$SIGNING_KEY" -e NODE_ENV=production -e PORT=8080 \
+  -p 127.0.0.1:8088:8080 minice-site:local
 ```
 
-Rotating `MODEL_KEY` requires a full rebuild (re-encrypts the VRM +
-recompiles the WASM). Rotating `SIGNING_KEY` only needs a container
-restart with the new env — existing tokens (60s TTL) just expire.
-
-## Quick post-deploy smoke test
+## Smoke test
 
 ```bash
-curl -sI https://minice.ai/                       # 200, text/html
+curl -sI http://127.0.0.1:8088/                              # 200, text/html
 curl -s -o /dev/null -w '%{http_code}\n' \
-  https://minice.ai/api/asset/nayu                 # 401 (no token)
+  http://127.0.0.1:8088/api/asset/nayu                       # 401 (no token)
 curl -s -o /dev/null -w '%{http_code}\n' \
-  https://minice.ai/nayu.vrm                       # 404 (no raw model)
+  http://127.0.0.1:8088/nayu.vrm                             # 404 (no raw model)
 ```
 
-Then open the site, confirm the Astra card's avatar loads, and check
+Then open the site, confirm the Astra card avatar loads, and check
 DevTools → Network shows one `POST /api/token` + one
-`GET /api/asset/nayu?t=…` and no `.vrm` request anywhere.
+`GET /api/asset/nayu?t=…`, with no `.vrm` request anywhere.
