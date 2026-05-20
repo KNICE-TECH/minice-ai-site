@@ -18,7 +18,9 @@
 
 services:
   web:
-    image: ghcr.io/mihailinl/minice-ai-site:latest
+    # GHCR path = lowercased "<owner>/<repo>". The CI workflow publishes
+    # to ghcr.io/${{ github.repository }}, lowercased by metadata-action.
+    image: ghcr.io/knice-tech/minice-ai-site:latest
     container_name: minice
     restart: unless-stopped
     ports:
