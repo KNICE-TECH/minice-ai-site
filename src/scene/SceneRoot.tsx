@@ -9,6 +9,7 @@ import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { useGPUTier } from "@/hooks/useGPUTier";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useProgressStore } from "@/scroll/progressStore";
+import { stableViewportHeight } from "@/lib/viewport";
 
 export function SceneRoot() {
   const reduced = useReducedMotion();
@@ -45,7 +46,9 @@ export function SceneRoot() {
         return;
       }
       const projEnd = projects.offsetTop + projects.offsetHeight;
-      const vh = window.innerHeight;
+      // Stable height — see lib/viewport.ts. window.innerHeight would jump
+      // on URL-bar toggle and make the blur ramp stutter mid-scroll.
+      const vh = stableViewportHeight();
       const y = window.scrollY;
       // Start blur the moment About begins entering the viewport (y = projEnd − vh)
       // and reach full strength by the time Projects has fully scrolled away (y = projEnd).
@@ -70,7 +73,16 @@ export function SceneRoot() {
       aria-hidden="true"
       style={{
         position: "fixed",
-        inset: 0,
+        top: 0,
+        left: 0,
+        // Stable viewport box. `inset: 0` ties the bottom edge to the
+        // DYNAMIC viewport — on mobile the box grows/shrinks as the
+        // browser URL bar hides/shows, which resizes the canvas and makes
+        // the 3D mark jump mid-scroll. Explicit `100vh` sizing fixes the
+        // box: per the modern CSS spec `vh` resolves against the LARGE
+        // viewport and does NOT change with URL-bar state.
+        width: "100vw",
+        height: "100vh",
         zIndex: 0,
         pointerEvents: "none",
         background: "radial-gradient(ellipse at 50% 50%, #141414 0%, #0a0a0a 70%)",
@@ -99,7 +111,7 @@ export function SceneRoot() {
         <pointLight position={[-2.5, -1.5, 4]} intensity={10} distance={10} decay={1.55} color="#e8a87c" />
         <ambientLight intensity={0.18} color="#f5f4f1" />
         <Suspense fallback={null}>
-          <ApertureRig />
+          <ApertureRig lowEnd={lowEnd} />
         </Suspense>
         <CameraRig />
         {!lowEnd && !reduced && <PostFX />}

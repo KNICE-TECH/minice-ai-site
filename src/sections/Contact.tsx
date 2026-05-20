@@ -82,11 +82,11 @@ export function Contact() {
     <section
       id="contact"
       className="relative w-full"
-      style={{ height: "120dvh" }}
+      style={{ height: "120svh" }}
     >
       <div
         className="sticky top-0 w-full overflow-hidden"
-        style={{ height: "100dvh", transform: "translateZ(0)" }}
+        style={{ height: "100svh", transform: "translateZ(0)" }}
       >
         <div className="absolute inset-0 px-4 sm:px-10 flex items-end md:items-center pb-12 sm:pb-16 md:pb-0 pt-20 md:pt-0">
           <div className="max-w-6xl mx-auto w-full">

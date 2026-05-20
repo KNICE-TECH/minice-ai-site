@@ -2,8 +2,9 @@ type Meta = { title: string; description: string };
 
 export const seo = {
   home: {
-    title: "Minice — an aperture onto what software can be.",
-    description: "Independent software studio. AI companions, tools, and frames onto what software can be.",
+    title: "Minice — small, precise software that feels like a presence.",
+    description:
+      "Independent software studio building AI companions, desktop tools, and things we'd keep on our own machines for years.",
   },
   privacy: {
     title: "Privacy — Minice",
@@ -15,7 +16,7 @@ export const seo = {
   },
   notFound: {
     title: "404 — Minice",
-    description: "The aperture closed on this page.",
+    description: "No facet here — the page you were looking for isn't part of this crystal.",
   },
 } satisfies Record<string, Meta>;
 

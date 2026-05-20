@@ -8,6 +8,7 @@ import { applyMeta, seo } from "@/lib/seo";
 import { ProgressRail } from "@/components/ProgressRail";
 import { useProgressStore } from "@/scroll/progressStore";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { stableViewportHeight } from "@/lib/viewport";
 
 export default function Home() {
   const mainRef = useRef<HTMLElement>(null);
@@ -28,8 +29,18 @@ export default function Home() {
       //   scrollY = Hero bottom       → p = 0.5  (fully split / lens)
       //   scrollY = Projects end      → p = 0    (back to closed M)
       //   beyond Projects             → p = 0    (logo as static backdrop)
-      // Scrolling back up rewinds smoothly.
-      const apply = () => {
+      //
+      // The raw scroll position only sets a TARGET. A rAF loop eases the
+      // actual progress toward it — this is the choreography's own
+      // smoothing layer, standing in for the Lenis smoothing the desktop
+      // path gets. Without it, a single momentum fling jumps scrollY by
+      // hundreds of px in one event and the boom animation snaps instead
+      // of playing.
+      let targetP = 0;
+      let currentP = 0;
+      let raf = 0;
+
+      const computeTarget = () => {
         const hero = document.getElementById("hero");
         const projects = document.getElementById("projects");
         if (!hero) return;
@@ -37,7 +48,10 @@ export default function Home() {
         const projTop = projects ? projects.offsetTop : heroH;
         const projH = projects ? projects.offsetHeight : heroH * 2;
         const projEnd = projTop + projH;
-        const vh = window.innerHeight;
+        // Stable viewport height — NOT window.innerHeight, which jumps as
+        // the mobile URL bar hides/shows and would make the boom animation
+        // teleport along its timeline mid-scroll.
+        const vh = stableViewportHeight();
         // Collapse begins exactly when the NEXT section (About) edges into
         // the bottom of the viewport, and finishes when Projects scrolls off
         // the top — so the mark is fully closed before About replaces Projects.
@@ -55,14 +69,29 @@ export default function Home() {
           const k = (y - collapseStart) / Math.max(1, projEnd - collapseStart);
           p = 0.5 * (1 - k);
         }
-        setProgress(Math.max(0, Math.min(0.5, p)));
+        targetP = Math.max(0, Math.min(0.5, p));
       };
-      apply();
-      window.addEventListener("scroll", apply, { passive: true });
-      window.addEventListener("resize", apply);
+
+      const tick = () => {
+        // ~0.1 per frame ≈ 0.35s to settle — slow enough that a violent
+        // fling still plays the boom as an animation, fast enough to feel
+        // responsive to deliberate scrolling.
+        currentP += (targetP - currentP) * 0.1;
+        if (Math.abs(targetP - currentP) < 0.0004) currentP = targetP;
+        setProgress(currentP);
+        raf = requestAnimationFrame(tick);
+      };
+
+      computeTarget();
+      currentP = targetP; // start settled — no intro jump on mount
+      setProgress(currentP);
+      tick();
+      window.addEventListener("scroll", computeTarget, { passive: true });
+      window.addEventListener("resize", computeTarget);
       return () => {
-        window.removeEventListener("scroll", apply);
-        window.removeEventListener("resize", apply);
+        cancelAnimationFrame(raf);
+        window.removeEventListener("scroll", computeTarget);
+        window.removeEventListener("resize", computeTarget);
         setProgress(0);
       };
     }

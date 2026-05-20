@@ -156,7 +156,7 @@ export function AstraFeatureCard({ project }: Props) {
           </p>
 
           <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8 border-y border-white/5 py-4 sm:py-5">
-            <Stat label="latency" value="142" unit="ms" />
+            <Stat label="shortcuts" value="instant" unit="" />
             <Stat label="memory" value="<1" unit="gb" />
             <Stat label="runtime" value="rust" unit="" />
           </div>

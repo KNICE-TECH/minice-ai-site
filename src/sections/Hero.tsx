@@ -22,13 +22,13 @@ export function Hero() {
 
   if (mobile) {
     return (
-      <section id="hero" className="relative w-full" style={{ minHeight: "100dvh" }}>
+      <section id="hero" className="relative w-full" style={{ minHeight: "100svh" }}>
         <div className="flex flex-col items-center px-4 pt-16 pb-10">
           <motion.p
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.2 }}
-            className="font-mono uppercase tracking-[0.32em] text-[color:var(--bronze)] text-center mb-[55dvh]"
+            className="font-mono uppercase tracking-[0.32em] text-[color:var(--bronze)] text-center mb-[55svh]"
             style={{ fontSize: "0.62rem" }}
           >
             {t.hero.eyebrow}
@@ -62,7 +62,7 @@ export function Hero() {
     <section
       id="hero"
       className="relative w-full"
-      style={{ height: "100dvh" }}
+      style={{ height: "100svh" }}
     >
       <div className="absolute inset-0 flex flex-col items-center px-4 sm:px-10"
            style={{ paddingTop: "clamp(3rem, 9vmin, 7rem)", paddingBottom: "clamp(3rem, 6vh, 5rem)" }}>

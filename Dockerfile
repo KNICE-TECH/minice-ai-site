@@ -6,7 +6,10 @@
 #   compile time (build.rs parses it to a 32-byte constant). The hex
 #   string never enters the binary, only the parsed bytes.
 # ─────────────────────────────────────────────────────────────────────
-FROM rust:1.83-slim AS wasm
+# rust:1-slim tracks the latest stable 1.x — needs to be ≥1.85 because
+# current wasm-pack pulls clap_builder, which requires the edition2024
+# Cargo feature. Pinning to 1.83 broke the build with that exact error.
+FROM rust:1-slim AS wasm
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates pkg-config build-essential \
     && rm -rf /var/lib/apt/lists/* \

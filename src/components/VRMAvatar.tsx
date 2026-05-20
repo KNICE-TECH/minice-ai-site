@@ -52,11 +52,17 @@ export function VRMAvatar({ url, className }: VRMAvatarProps) {
     };
     const EMOTION_LERP = 14.0;
 
-    // Canvas can measure 0 on the first synchronous read if its parent hasn't
-    // laid out yet. Guard with sane minimums so the renderer initialises and
-    // the ResizeObserver below catches the real size on the next frame.
-    const w = Math.max(canvas.clientWidth, 320);
-    const h = Math.max(canvas.clientHeight, 320);
+    // Canvas can measure 0 on the first synchronous read if its parent
+    // hasn't laid out yet. Fall back to a square ONLY in that case —
+    // never clamp a real measured size, or a canvas shorter than the
+    // fallback (e.g. the 280px-tall avatar pane on mobile) would render
+    // at the wrong aspect ratio and look stretched.
+    const measure = (): [number, number] => {
+      const cw = canvas.clientWidth;
+      const ch = canvas.clientHeight;
+      return cw > 0 && ch > 0 ? [cw, ch] : [320, 320];
+    };
+    const [w, h] = measure();
 
     // Render at a low DPR until the model finishes parsing; bump to the target
     // quality after load so we don't pay the high-res cost during the GLB spike.
@@ -154,8 +160,7 @@ export function VRMAvatar({ url, className }: VRMAvatarProps) {
             scene.add(loaded.scene);
             vrm = loaded;
             renderer.setPixelRatio(targetDPR);
-            const cw = Math.max(canvas.clientWidth, 320);
-            const ch = Math.max(canvas.clientHeight, 320);
+            const [cw, ch] = measure();
             renderer.setSize(cw, ch, false);
             camera.aspect = cw / ch;
             camera.updateProjectionMatrix();
@@ -197,21 +202,40 @@ export function VRMAvatar({ url, className }: VRMAvatarProps) {
       void startLoad();
     });
 
-    function onMove(e: MouseEvent) {
+    // Pointer events cover BOTH mouse and touch — on a phone the avatar
+    // tracks the finger while it's dragging. `lastInputAt` lets the idle
+    // gaze take over when there's been no pointer input for a while
+    // (phones have no hover, so without this the avatar would freeze
+    // staring forward between touches).
+    let lastInputAt = -10;
+    function onMove(e: PointerEvent) {
       if (!canvas) return;
       const r = canvas.getBoundingClientRect();
       const cx = r.left + r.width / 2;
       const cy = r.top + r.height / 2;
       mx = (e.clientX - cx) / r.width;
       my = (e.clientY - cy) / r.height;
+      lastInputAt = elapsed;
     }
-    window.addEventListener("mousemove", onMove);
+    window.addEventListener("pointermove", onMove);
+
+    const IDLE_AFTER = 2.5; // seconds of no input → autonomous gaze
 
     const clock = new THREE.Clock();
     function loop() {
       if (disposed) return;
       const dt = clock.getDelta();
       elapsed += dt;
+
+      // Idle gaze: when no pointer has moved recently (always true on a
+      // touch device between taps), drift the look target along a slow
+      // wandering path so the avatar keeps feeling alive.
+      if (elapsed - lastInputAt > IDLE_AFTER) {
+        const t = elapsed;
+        mx = Math.sin(t * 0.31) * 0.55 + Math.sin(t * 0.13) * 0.2;
+        my = Math.sin(t * 0.23 + 1.7) * 0.3;
+      }
+
       tx += (mx - tx) * 0.06;
       ty += (my - ty) * 0.06;
 
@@ -262,8 +286,7 @@ export function VRMAvatar({ url, className }: VRMAvatarProps) {
     loop();
 
     const ro = new ResizeObserver(() => {
-      const W = canvas.clientWidth;
-      const H = canvas.clientHeight;
+      const [W, H] = measure();
       renderer.setSize(W, H, false);
       camera.aspect = W / H;
       camera.updateProjectionMatrix();
@@ -273,7 +296,7 @@ export function VRMAvatar({ url, className }: VRMAvatarProps) {
     return () => {
       disposed = true;
       cancelAnimationFrame(raf);
-      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("pointermove", onMove);
       ro.disconnect();
       if (vrm) {
         scene.remove(vrm.scene);

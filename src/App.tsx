@@ -19,7 +19,7 @@ export default function App() {
       <SceneRoot />
       <AmbientBridge />
       <Nav />
-      <Suspense fallback={<div style={{ minHeight: "100dvh" }} />}>
+      <Suspense fallback={<div style={{ minHeight: "100svh" }} />}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/privacy" element={<Privacy />} />

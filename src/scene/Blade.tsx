@@ -6,7 +6,16 @@ import { useProgressStore } from "@/scroll/progressStore";
 import { useMousePosition } from "@/hooks/useMousePosition";
 import { smoothstep } from "@/lib/math";
 
-type Props = { index: 0 | 1 | 2; color: string; opacity?: number };
+type Props = {
+  index: 0 | 1 | 2;
+  color: string;
+  opacity?: number;
+  // Low-end GPUs: drop the transmission render pass (it's a full extra
+  // scene render per frame). The crystal falls back to a frosted-glass
+  // look — emissive + envMap reflection only — which is far cheaper and
+  // still reads as a faceted gem rather than flat plastic.
+  lowEnd?: boolean;
+};
 type V2 = [number, number];
 
 const VERTS: ReadonlyArray<[V2, V2, V2]> = [
@@ -381,7 +390,7 @@ function buildEdgeGeometry(index: 0 | 1 | 2) {
   return geo;
 }
 
-export function Blade({ index, color, opacity = 1 }: Props) {
+export function Blade({ index, color, opacity = 1, lowEnd = false }: Props) {
   const groupRef = useRef<THREE.Group>(null);
   const matRef = useRef<THREE.MeshPhysicalMaterial>(null);
   const slabMatRef = useRef<THREE.MeshPhysicalMaterial>(null);
@@ -454,10 +463,12 @@ export function Blade({ index, color, opacity = 1 }: Props) {
           ref={slabMatRef}
           color={baseColor}
           emissive={baseColor}
-          emissiveIntensity={0.45}
+          // lowEnd: brighter emissive compensates for the lost transmission.
+          emissiveIntensity={lowEnd ? 0.7 : 0.45}
           metalness={0}
           roughness={0.16}
-          transmission={0.55}
+          // transmission=0 on low-end skips the costly transmission pass.
+          transmission={lowEnd ? 0 : 0.55}
           thickness={1.3}
           ior={1.6}
           attenuationColor={attenuationColor}
@@ -489,15 +500,17 @@ export function Blade({ index, color, opacity = 1 }: Props) {
           emissive={baseColor}
           /* Emissive carries colour even where transmission would otherwise
              show the dark background — kills the "black holes" between
-             tilted facets without making the material look painted. */
-          emissiveIntensity={0.55}
+             tilted facets without making the material look painted.
+             On low-end (no transmission) it's pushed brighter so the
+             frosted fallback still glows. */
+          emissiveIntensity={lowEnd ? 0.72 : 0.55}
           metalness={0}
           /* Tightened glossy crystal — with real per-triangle normals,
              this gives crisp facet sparkles when tilt catches a light. */
           roughness={0.11}
-          /* Less see-through so the bronze base reads as solid crystal
-             rather than coloured glass over the dark scene. */
-          transmission={0.55}
+          /* transmission=0 on low-end GPUs drops the per-frame extra
+             render pass; the facets still read via emissive + envMap. */
+          transmission={lowEnd ? 0 : 0.55}
           thickness={1.1}
           ior={1.6}
           attenuationColor={attenuationColor}
